@@ -14,7 +14,7 @@ from std_msgs.msg import Float64
 """
 Getting poses and buttons of the controllers into ROS.
 
-The HMD (headset) is not tracked.
+The HMD (headset) tf is not published.
 
 Poses are published in TF.
 Button presses in Joy topics /vive_left /vive_right .
@@ -233,7 +233,7 @@ if __name__ == '__main__':
     pp = pprint.PrettyPrinter(indent=4)
 
     print("Initializing ROS...")
-    rospy.init_node('HTCViveROS')
+    rospy.init_node('vive_hand_publisher')
     print("Creating TransformBroadcaster...")
 
     br = tf2_ros.TransformBroadcaster()
@@ -276,13 +276,8 @@ if __name__ == '__main__':
 
         now = rospy.Time.now()
         transforms = []
-        # Hmd is always 0
-        matrix = poses[0].mDeviceToAbsoluteTracking
-        hmd_pose = from_matrix_to_transform(matrix, now, "world", "hmd")
-        transforms.append(hmd_pose)
-
-        # print("Hmd:")
-        # pp.pprint(hmd_pose)
+        # HMD is always 0.
+        # Skip it -- hand trackers only.
 
         for idx, _id in enumerate(lighthouse_ids):
             matrix = poses[_id].mDeviceToAbsoluteTracking
