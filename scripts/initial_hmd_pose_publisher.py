@@ -5,10 +5,10 @@ import openvr
 from math import sqrt, copysign
 import pprint
 import rospy
-from tf.transformations import euler_from_quaternion, quaternion_from_euler
+import tf.transformations
+import tf2_geometry_msgs
 import tf2_ros
-from geometry_msgs.msg import Transform
-from geometry_msgs.msg import TransformStamped
+from geometry_msgs.msg import Transform, TransformStamped, PoseStamped
 from sensor_msgs.msg import Joy
 from std_msgs.msg import Float64
 
@@ -187,18 +187,19 @@ if __name__ == '__main__':
     rospy.sleep(3.0)
     print("Running!")
 
-    # Get the initial headset pose, 
-    # /hmd, w.r.t. /lighthouse_0.
+    # Get the initial headset pose /hmd w.r.t. /lighthouse_0.
     # Both are received with respect to /world, so it takes some algebra to get
     # T(lighthouse_0 to hmd)
-    # T_lighthouse_0_hmd = T_lighthouse_0_world * T_world_hmd
+    # T_lighthouse0_hmd = T_lighthouse0_world * T_world_hmd
     # = T_world_lighthouse_0 ^ -1 * T_world_hmd
-    T_lighthouse0_hmd = TransformStamped()
+    # P = pose type, T = transform type. It's essentially the same data, just
+    # different ROS methods available
+    P_lighthouse0_hmd = PoseStamped()
 
     # A type for receiving data from the headset:
     poses = poses_t()
     # All-zero pose and empty frame_id is a good indicator that a msg hasn't been received
-    while (T_lighthouse0_hmd.header.frame_id == ''):
+    while (P_lighthouse0_hmd.header.frame_id == '') and (not rospy.is_shutdown()):
         vrsystem.getDeviceToAbsoluteTrackingPose(
             openvr.TrackingUniverseStanding,
             0,
@@ -206,22 +207,50 @@ if __name__ == '__main__':
             poses)
         # Get hmd transform:
         # Hmd is always 0
-        T_world_hmd = poses[0].mDeviceToAbsoluteTracking
-        rospy.loginfo(T_world_hmd)
+        matrix = poses[0].mDeviceToAbsoluteTracking
+        T_world_hmd = from_matrix_to_transform(matrix, rospy.Time.now(),
+                    "world", "hmd")
+        #rospy.loginfo(T_world_hmd)
 
         # Get lighthouse_0 transform:
-        T_world_lighthouse_0 = None
+        T_world_lighthouse0 = None
         for idx, _id in enumerate(lighthouse_ids):
             # Only want lighthouse_0, not lighthouse_1
             if (idx == 0):
-                T_world_lighthouse_0 = poses[_id].mDeviceToAbsoluteTracking
-                rospy.logwarn(T_world_lighthouse_0)
+                matrix = poses[_id].mDeviceToAbsoluteTracking
+                T_world_lighthouse0 = from_matrix_to_transform(matrix, rospy.Time.now(), 
+                    "world", "lighthouse_0")
+                #rospy.logwarn(T_world_lighthouse0)
 
-        # Invert and multiply to get T_lighthouse_0_world
-        matrix = T_world_lighthouse_0.inverse() * T_world_hmd
-        T_lighthouse0_hmd = from_matrix_to_transform(matrix, rospy.Time.now(), 
-            "lighthouse_0", "hmd")
-        rospy.loginfo(T_lighthouse0_hmd)
+        # Invert and multiply to get T_lighthouse0_world
+        # Requires conversion from TransformStamped to lists
+        trans = [T_world_lighthouse0.transform.translation.x, \
+                T_world_lighthouse0.transform.translation.y, \
+                T_world_lighthouse0.transform.translation.z]
+        rot = [T_world_lighthouse0.transform.rotation.x, \
+                T_world_lighthouse0.transform.rotation.y, \
+                T_world_lighthouse0.transform.rotation.z, \
+                T_world_lighthouse0.transform.rotation.w]
+        transform = tf.transformations.concatenate_matrices( \
+            tf.transformations.translation_matrix(trans), \
+            tf.transformations.quaternion_matrix(rot))
+        T_lighthouse0_world = TransformStamped()
+        T_lighthouse0_world.header.stamp = rospy.Time.now()
+        T_lighthouse0_world.header.frame_id = "lighthouse_0"
+        inverse = tf.transformations.inverse_matrix(transform)
+        T_lighthouse0_world.transform.translation.x = inverse[0][3]
+        T_lighthouse0_world.transform.translation.y = inverse[1][3]
+        T_lighthouse0_world.transform.translation.z = inverse[2][3]
+        T_lighthouse0_world.transform.rotation = tf.transformations.quaternion_from_matrix(inverse)
+        rospy.logerr(T_lighthouse0_world.transform)
+
+        # T_world_hmd needs to be a PoseStamped type, for convenient transformation
+        P_world_hmd = PoseStamped(T_world_hmd.header, T_world_hmd.transform)
+
+        # T_lighthouse0_hmd = T_lighthouse0_world * T_world_hmd
+        #P_lighthouse0_hmd = tf2_geometry_msgs.do_transform_pose(P_world_hmd, \
+        #    T_lighthouse0_world)
+        rospy.loginfo(P_lighthouse0_hmd)
 
     # Republish this headset pose
     r = rospy.Rate(10)
