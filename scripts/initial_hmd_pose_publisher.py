@@ -192,14 +192,14 @@ if __name__ == '__main__':
     # T(lighthouse_0 to hmd)
     # T_lighthouse0_hmd = T_lighthouse0_world * T_world_hmd
     # = T_world_lighthouse_0 ^ -1 * T_world_hmd
-    # P = pose type, T = transform type. It's essentially the same data, just
+    # P_ = pose type, T_ = transform type. It's essentially the same data, just
     # different ROS methods available
-    P_lighthouse0_hmd = PoseStamped()
+    T_lighthouse0_hmd = TransformStamped()
 
     # A type for receiving data from the headset:
     poses = poses_t()
     # All-zero pose and empty frame_id is a good indicator that a msg hasn't been received
-    while (P_lighthouse0_hmd.header.frame_id == '') and (not rospy.is_shutdown()):
+    while (T_lighthouse0_hmd.header.frame_id == '') and (not rospy.is_shutdown()):
         vrsystem.getDeviceToAbsoluteTrackingPose(
             openvr.TrackingUniverseStanding,
             0,
@@ -210,7 +210,6 @@ if __name__ == '__main__':
         matrix = poses[0].mDeviceToAbsoluteTracking
         T_world_hmd = from_matrix_to_transform(matrix, rospy.Time.now(),
                     "world", "hmd")
-        #rospy.loginfo(T_world_hmd)
 
         # Get lighthouse_0 transform:
         T_world_lighthouse0 = None
@@ -220,7 +219,6 @@ if __name__ == '__main__':
                 matrix = poses[_id].mDeviceToAbsoluteTracking
                 T_world_lighthouse0 = from_matrix_to_transform(matrix, rospy.Time.now(), 
                     "world", "lighthouse_0")
-                #rospy.logwarn(T_world_lighthouse0)
 
         # Invert and multiply to get T_lighthouse0_world
         # Requires conversion from TransformStamped to lists
@@ -237,26 +235,38 @@ if __name__ == '__main__':
         T_lighthouse0_world = TransformStamped()
         T_lighthouse0_world.header.stamp = rospy.Time.now()
         T_lighthouse0_world.header.frame_id = "lighthouse_0"
+        T_lighthouse0_world.child_frame_id = "world"
         inverse = tf.transformations.inverse_matrix(transform)
         T_lighthouse0_world.transform.translation.x = inverse[0][3]
         T_lighthouse0_world.transform.translation.y = inverse[1][3]
         T_lighthouse0_world.transform.translation.z = inverse[2][3]
-        T_lighthouse0_world.transform.rotation = tf.transformations.quaternion_from_matrix(inverse)
-        rospy.logerr(T_lighthouse0_world.transform)
+        q = tf.transformations.quaternion_from_matrix(inverse)
+        T_lighthouse0_world.transform.rotation.x = q[0]
+        T_lighthouse0_world.transform.rotation.y = q[1]
+        T_lighthouse0_world.transform.rotation.z = q[2]
+        T_lighthouse0_world.transform.rotation.w = q[3]
 
         # T_world_hmd needs to be a PoseStamped type, for convenient transformation
-        P_world_hmd = PoseStamped(T_world_hmd.header, T_world_hmd.transform)
+        P_world_hmd = PoseStamped()
+        P_world_hmd.header = T_world_hmd.header
+        P_world_hmd.pose.position = T_world_hmd.transform.translation
+        P_world_hmd.pose.orientation = T_world_hmd.transform.rotation
 
         # T_lighthouse0_hmd = T_lighthouse0_world * T_world_hmd
-        #P_lighthouse0_hmd = tf2_geometry_msgs.do_transform_pose(P_world_hmd, \
-        #    T_lighthouse0_world)
-        rospy.loginfo(P_lighthouse0_hmd)
+        P_lighthouse0_hmd = tf2_geometry_msgs.do_transform_pose(P_world_hmd, \
+            T_lighthouse0_world)
+        # Back to a tf data type
+        T_lighthouse0_hmd.header.stamp = rospy.Time.now()
+        T_lighthouse0_hmd.header.frame_id = "lighthouse_0"
+        T_lighthouse0_hmd.child_frame_id = "hmd"
+        T_lighthouse0_hmd.transform.translation = P_lighthouse0_hmd.pose.position
+        T_lighthouse0_hmd.transform.rotation = P_lighthouse0_hmd.pose.orientation
 
     # Republish this headset pose
     r = rospy.Rate(10)
     while not rospy.is_shutdown():
         r.sleep()
-        T_world_hmd.header.stamp = rospy.Time.now()
-        br.sendTransform(T_world_hmd)
+        T_lighthouse0_hmd.header.stamp = rospy.Time.now()
+        br.sendTransform(T_lighthouse0_hmd)
 
     openvr.shutdown()
