@@ -96,7 +96,11 @@ if __name__ == '__main__':
     poses = poses_t()
 
     # Internet says the tracking can be up until 250Hz
-    r = rospy.Rate(250)
+    r = rospy.Rate(10)
+
+    # Preallocate
+    T_world_controller = None
+
     while not rospy.is_shutdown():
         vrsystem.getDeviceToAbsoluteTrackingPose(
             openvr.TrackingUniverseStanding,
@@ -105,14 +109,11 @@ if __name__ == '__main__':
             poses)
 
         # Get lighthouse0 transform
-        for idx, _id in enumerate(lighthouse_ids):
-            if idx == 0:
-                matrix = poses[_id].mDeviceToAbsoluteTracking
-                T_world_lighthouse0 = common_vive_functions.from_matrix_to_transform(matrix, rospy.Time.now(),
-                    "world", "lighthouse0")
+        matrix = poses[lighthouse_ids[0]].mDeviceToAbsoluteTracking
+        T_world_lighthouse0 = common_vive_functions.from_matrix_to_transform(matrix, rospy.Time.now(),
+            "world", "lighthouse0")
 
         # Get left_controller transform:
-        T_world_controller = None
         if left_id:
             matrix = poses[left_id].mDeviceToAbsoluteTracking
             T_world_controller = common_vive_functions.from_matrix_to_transform(matrix,
@@ -122,6 +123,7 @@ if __name__ == '__main__':
         # T_lighthouse0_left_controller = T_world_lighthouse0^-1 * T_world_controller
         T_lighthouse0_left_controller = common_vive_functions.calculate_relative_transformation(T_world_lighthouse0, \
             T_world_controller, "lighthouse0", "left_controller")
+        br.sendTransform(T_lighthouse0_left_controller)
 
         # Get right_controller transform:
         if right_id:
@@ -133,9 +135,8 @@ if __name__ == '__main__':
         # T_lighthouse0_right_controller = T_world_lighthouse0^-1 * T_world_controller
         T_lighthouse0_right_controller = common_vive_functions.calculate_relative_transformation(T_world_lighthouse0, \
             T_world_controller, "lighthouse0", "right_controller")
+        br.sendTransform(T_lighthouse0_right_controller)
 
         r.sleep()
-        br.sendTransform(T_lighthouse0_left_controller)
-        br.sendTransform(T_lighthouse0_right_controller)
 
     openvr.shutdown()
