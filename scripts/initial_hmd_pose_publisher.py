@@ -69,12 +69,12 @@ if __name__ == '__main__':
     # T(lighthouse_0 to hmd)
     # T_lighthouse0_hmd = T_lighthouse0_world * T_world_hmd
     #                   = T_world_lighthouse_0 ^ -1 * T_world_hmd
-    T_lighthouse0_hmd = TransformStamped()
+    T_hmd_lighthouse0 = TransformStamped()
 
     # A type for receiving data from the headset:
     poses = poses_t()
     # All-zero pose and empty frame_id is a good indicator that a msg hasn't been received
-    while (T_lighthouse0_hmd.header.frame_id == '') and (not rospy.is_shutdown()):
+    while (T_hmd_lighthouse0.header.frame_id == '') and (not rospy.is_shutdown()):
         vrsystem.getDeviceToAbsoluteTrackingPose(
             openvr.TrackingUniverseStanding,
             0,
@@ -93,13 +93,11 @@ if __name__ == '__main__':
             if (idx == 0):
                 matrix = poses[_id].mDeviceToAbsoluteTracking
                 T_world_lighthouse0 = common_vive_functions.from_matrix_to_transform(matrix, rospy.Time.now(), 
-                    "world", "lighthouse_0")
+                    "world", "lighthouse0")
 
-        # T_lighthouse0_hmd = T_world_lighthouse0^-1 * T_world_hmd
-        T_lighthouse0_hmd = common_vive_functions.calculate_relative_transformation(T_world_lighthouse0, T_world_hmd)
-        T_lighthouse0_hmd.header.stamp = rospy.Time.now()
-        T_lighthouse0_hmd.header.frame_id = "lighthouse_0"
-        T_lighthouse0_hmd.child_frame_id = "hmd"
+        # T_hmd_lighthouse0 = T_world_hmd^-1 * T_world_lighthouse0
+        T_hmd_lighthouse0 = common_vive_functions.calculate_relative_transformation(T_world_hmd, T_world_lighthouse0, \
+            "hmd", "lighthouse0")
 
     # We got the initial pose -- can release control of VR now
     openvr.shutdown()
@@ -108,5 +106,5 @@ if __name__ == '__main__':
     r = rospy.Rate(10)
     while not rospy.is_shutdown():
         r.sleep()
-        T_lighthouse0_hmd.header.stamp = rospy.Time.now()
-        br.sendTransform(T_lighthouse0_hmd)
+        T_hmd_lighthouse0.header.stamp = rospy.Time.now()
+        br.sendTransform(T_hmd_lighthouse0)

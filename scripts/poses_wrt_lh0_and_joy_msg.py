@@ -13,8 +13,8 @@ import time
 """
 Getting poses and buttons into ROS.
 
-Publishes the following poses w.r.t. the /hmd ROS tf frame:
-/hmd is the parent of /left_controller, and /right_controller.
+Publishes the following poses w.r.t. the /lighthouse0 ROS tf frame:
+/lighthouse0 is the parent of /left_controller, and /right_controller.
 Button presses in Joy topics /vive_left /vive_right .
 
 Author: Sammy Pfeiffer <Sammy.Pfeiffer at student.uts.edu.au>, Andy Zelenak
@@ -82,12 +82,15 @@ if __name__ == '__main__':
     print("Right controller ID: " + str(right_id))
     print("===========================")
 
-    # Get the /left_controller pose w.r.t. /hmd
+    lighthouse_ids = common_vive_functions.get_lighthouse_ids(vrsystem)
+    print("Lighthouse IDs: " + str(lighthouse_ids))
+
+    # Get the /left_controller pose w.r.t. /lighthouse0
     # Both are received with respect to /world, so it takes some algebra to get
-    # T(hmd to left_controller)
-    # T_hmd_left_controller = T_hmd_world * T_world_controller
-    #                   = T_world_hmd^-1 * T_world_controller
-    T_hmd_left_controller = TransformStamped()
+    # T(lighthouse0 to left_controller)
+    # T_lighthouse0_left_controller = T_lighthouse0_world * T_world_controller
+    #                   = T_world_lighthouse0^-1 * T_world_controller
+    T_lighthouse0_left_controller = TransformStamped()
 
     # A type for receiving data from the headset:
     poses = poses_t()
@@ -100,11 +103,13 @@ if __name__ == '__main__':
             0,
             len(poses),
             poses)
-        # Get hmd transform:
-        # Hmd is always 0
-        matrix = poses[0].mDeviceToAbsoluteTracking
-        T_world_hmd = common_vive_functions.from_matrix_to_transform(matrix, rospy.Time.now(),
-                    "world", "hmd")
+
+        # Get lighthouse0 transform
+        for idx, _id in enumerate(lighthouse_ids):
+            if idx == 0:
+                matrix = poses[_id].mDeviceToAbsoluteTracking
+                T_world_lighthouse0 = common_vive_functions.from_matrix_to_transform(matrix, rospy.Time.now(),
+                    "world", "lighthouse0")
 
         # Get left_controller transform:
         T_world_controller = None
@@ -114,9 +119,9 @@ if __name__ == '__main__':
                                                  rospy.Time.now(),
                                                  "world",
                                                  "left_controller")
-        # T_hmd_left_controller = T_world_hmd^-1 * T_world_controller
-        T_hmd_left_controller = common_vive_functions.calculate_relative_transformation(T_world_hmd, T_world_controller, \
-            "hmd", "left_controller")
+        # T_lighthouse0_left_controller = T_world_lighthouse0^-1 * T_world_controller
+        T_lighthouse0_left_controller = common_vive_functions.calculate_relative_transformation(T_world_lighthouse0, \
+            T_world_controller, "lighthouse0", "left_controller")
 
         # Get right_controller transform:
         if right_id:
@@ -125,12 +130,12 @@ if __name__ == '__main__':
                                                  rospy.Time.now(),
                                                  "world",
                                                  "right_controller")
-        # T_hmd_left_controller = T_world_hmd^-1 * T_world_controller
-        T_hmd_right_controller = common_vive_functions.calculate_relative_transformation(T_world_hmd, T_world_controller, \
-            "hmd", "right_controller")
+        # T_lighthouse0_right_controller = T_world_lighthouse0^-1 * T_world_controller
+        T_lighthouse0_right_controller = common_vive_functions.calculate_relative_transformation(T_world_lighthouse0, \
+            T_world_controller, "lighthouse0", "right_controller")
 
         r.sleep()
-        br.sendTransform(T_hmd_left_controller)
-        br.sendTransform(T_hmd_right_controller)
+        br.sendTransform(T_lighthouse0_left_controller)
+        br.sendTransform(T_lighthouse0_right_controller)
 
     openvr.shutdown()
