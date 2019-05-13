@@ -15,7 +15,8 @@ from std_msgs.msg import Float64
 """
 Getting poses and buttons into ROS.
 
-Poses are published in TF.
+Publishes the following poses w.r.t. the /hmd ROS tf frame:
+/hmd is the parent of /lighthouse_0, /lighthouse_1, /left_controller, and /right_controller.
 Button presses in Joy topics /vive_left /vive_right .
 
 Author: Sammy Pfeiffer <Sammy.Pfeiffer at student.uts.edu.au>

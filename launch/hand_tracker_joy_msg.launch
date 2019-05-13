@@ -1,7 +1,7 @@
 <launch>
   <!-- Publish hand tracker tf's only, no HMD tf -->
 
-  <node name="vive_tf_and_joy" pkg="htc_vive_teleop_stuff" type="hand_tracker_joy_msg.py" output="screen">
+  <node name="hand_tracker_joy_msg" pkg="htc_vive_teleop_stuff" type="hand_tracker_joy_msg.py" output="screen">
   	<env name="LD_LIBRARY_PATH"
   		value="$(env HOME)/.steam/steam/steamapps/common/SteamVR/bin/linux64:$(env HOME)/.steam/steam/steamapps/common/tools/bin/linux64:$(env LD_LIBRARY_PATH)" />
   </node>

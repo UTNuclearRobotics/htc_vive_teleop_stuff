@@ -1,7 +1,7 @@
 <launch>
   <!-- Get initial HMD pose and republish it repeatedly. -->
 
-  <node name="vive_tf_and_joy" pkg="htc_vive_teleop_stuff" type="initial_hmd_pose_publisher.py" output="screen">
+  <node name="initial_hmd_pose_publisher" pkg="htc_vive_teleop_stuff" type="initial_hmd_pose_publisher.py" output="screen">
   	<env name="LD_LIBRARY_PATH"
   		value="$(env HOME)/.steam/steam/steamapps/common/SteamVR/bin/linux64:$(env HOME)/.steam/steam/steamapps/common/tools/bin/linux64:$(env LD_LIBRARY_PATH)" />
   </node>
