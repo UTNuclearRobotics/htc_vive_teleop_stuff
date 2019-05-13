@@ -11,8 +11,11 @@ from std_msgs.msg import Float64
 import time
 
 """
-Get the initial HMD pose with respect to lighthouse_0.
-Republish it repeatedly.
+Getting poses and buttons into ROS.
+
+Publishes the following poses w.r.t. the /hmd ROS tf frame:
+/hmd is the parent of /left_controller, and /right_controller.
+Button presses in Joy topics /vive_left /vive_right .
 
 Author: Sammy Pfeiffer <Sammy.Pfeiffer at student.uts.edu.au>, Andy Zelenak
 """
@@ -46,9 +49,6 @@ if __name__ == '__main__':
     print("VRSystem...")
     vrsystem = openvr.VRSystem()
 
-    lighthouse_ids = common_vive_functions.get_lighthouse_ids(vrsystem)
-    print("Lighthouse IDs: " + str(lighthouse_ids))
-
     poses_t = openvr.TrackedDevicePose_t * openvr.k_unMaxTrackedDeviceCount
     poses = poses_t()
 
@@ -64,12 +64,30 @@ if __name__ == '__main__':
     rospy.sleep(3.0)
     print("Running!")
 
-    # Get the /lighthouse_0 pose w.r.t. /hmd
+    left_id, right_id = None, None
+    print("===========================")
+    print("Waiting for controllers...")
+    try:
+        while left_id is None or right_id is None:
+            left_id, right_id = common_vive_functions.get_controller_ids(vrsystem)
+            if left_id and right_id:
+                break
+            print("Waiting for controllers...")
+            time.sleep(1.0)
+    except KeyboardInterrupt:
+        print("Control+C pressed, shutting down...")
+        openvr.shutdown()
+
+    print("Left controller ID: " + str(left_id))
+    print("Right controller ID: " + str(right_id))
+    print("===========================")
+
+    # Get the /left_controller pose w.r.t. /hmd
     # Both are received with respect to /world, so it takes some algebra to get
-    # T(hmd to lighthouse_0)
-    # T_hmd_lighthouse0 = T_hmd_world * T_world_lighthouse0
-    #                   = T_world_hmd^-1 * T_world_lighthouse0
-    T_hmd_lighthouse0 = TransformStamped()
+    # T(hmd to left_controller)
+    # T_hmd_left_controller = T_hmd_world * T_world_left_controller
+    #                   = T_world_hmd^-1 * T_world_left_controller
+    T_hmd_left_controller = TransformStamped()
 
     # A type for receiving data from the headset:
     poses = poses_t()
@@ -88,23 +106,22 @@ if __name__ == '__main__':
         T_world_hmd = common_vive_functions.from_matrix_to_transform(matrix, rospy.Time.now(),
                     "world", "hmd")
 
-        # Get lighthouse_0 transform:
-        T_world_lighthouse0 = None
-        for idx, _id in enumerate(lighthouse_ids):
-            # Only want lighthouse_0, not lighthouse_1
-            if (idx == 0):
-                matrix = poses[_id].mDeviceToAbsoluteTracking
-                T_world_lighthouse0 = common_vive_functions.from_matrix_to_transform(matrix, rospy.Time.now(), 
-                    "world", "lighthouse_0")
-
-        # T_hmd_lighthouse0 = T_world_hmd^-1 * T_world_lighthouse0
-        T_hmd_lighthouse0 = common_vive_functions.calculate_relative_transformation(T_world_hmd, T_world_lighthouse0)
-        T_hmd_lighthouse0.header.stamp = rospy.Time.now()
-        T_hmd_lighthouse0.header.frame_id = "hmd"
-        T_hmd_lighthouse0.child_frame_id = "lighthouse_0"
+        # Get left_controller transform:
+        T_world_left_controller = None
+        if left_id:
+            matrix = poses[left_id].mDeviceToAbsoluteTracking
+            T_world_left_controller = common_vive_functions.from_matrix_to_transform(matrix,
+                                                 rospy.Time.now(),
+                                                 "world",
+                                                 "left_controller")
+        # T_hmd_left_controller = T_world_hmd^-1 * T_world_left_controller
+        T_hmd_left_controller = common_vive_functions.calculate_relative_transformation(T_world_hmd, T_world_left_controller)
+        T_hmd_left_controller.header.stamp = rospy.Time.now()
+        T_hmd_left_controller.header.frame_id = "hmd"
+        T_hmd_left_controller.child_frame_id = "left_controller"
 
         r.sleep()
-        T_hmd_lighthouse0.header.stamp = rospy.Time.now()
-        br.sendTransform(T_hmd_lighthouse0)
+        T_hmd_left_controller.header.stamp = rospy.Time.now()
+        br.sendTransform(T_hmd_left_controller)
 
     openvr.shutdown()
