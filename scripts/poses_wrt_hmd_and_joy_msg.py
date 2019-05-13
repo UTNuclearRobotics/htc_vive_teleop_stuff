@@ -1,27 +1,21 @@
 #!/usr/bin/env python
 
 import common_vive_functions
-import time
+from geometry_msgs.msg import TransformStamped
 import openvr
-from math import sqrt, copysign
 import pprint
 import rospy
-from tf.transformations import euler_from_quaternion, quaternion_from_euler
 import tf2_ros
-from geometry_msgs.msg import TransformStamped
 from sensor_msgs.msg import Joy
 from std_msgs.msg import Float64
+import time
 
 """
-Getting poses and buttons into ROS.
+Get the initial HMD pose with respect to lighthouse_0.
+Republish it repeatedly.
 
-Publishes the following poses w.r.t. the /hmd ROS tf frame:
-/hmd is the parent of /lighthouse_0, /lighthouse_1, /left_controller, and /right_controller.
-Button presses in Joy topics /vive_left /vive_right .
-
-Author: Sammy Pfeiffer <Sammy.Pfeiffer at student.uts.edu.au>
+Author: Sammy Pfeiffer <Sammy.Pfeiffer at student.uts.edu.au>, Andy Zelenak
 """
-
 
 if __name__ == '__main__':
     print("===========================")
@@ -52,29 +46,8 @@ if __name__ == '__main__':
     print("VRSystem...")
     vrsystem = openvr.VRSystem()
 
-    left_id, right_id = None, None
-    print("===========================")
-    print("Waiting for controllers...")
-    try:
-        while left_id is None or right_id is None:
-            left_id, right_id = common_vive_functions.get_controller_ids(vrsystem)
-            if left_id and right_id:
-                break
-            print("Waiting for controllers...")
-            time.sleep(1.0)
-    except KeyboardInterrupt:
-        print("Control+C pressed, shutting down...")
-        openvr.shutdown()
-
-    print("Left controller ID: " + str(left_id))
-    print("Right controller ID: " + str(right_id))
-    print("===========================")
-
     lighthouse_ids = common_vive_functions.get_lighthouse_ids(vrsystem)
     print("Lighthouse IDs: " + str(lighthouse_ids))
-
-    generic_tracker_ids = common_vive_functions.get_generic_tracker_ids(vrsystem)
-    print("Generic tracker IDs:" + str(generic_tracker_ids))
 
     poses_t = openvr.TrackedDevicePose_t * openvr.k_unMaxTrackedDeviceCount
     poses = poses_t()
@@ -86,111 +59,52 @@ if __name__ == '__main__':
     print("Creating TransformBroadcaster...")
 
     br = tf2_ros.TransformBroadcaster()
-    joy_left_pub = rospy.Publisher('vive_left', Joy, queue_size=1)
-    prev_unPacketNum_left = 0
-    joy_right_pub = rospy.Publisher('vive_right', Joy, queue_size=1)
-    prev_unPacketNum_right = 0
+
     # Give a bit of time to initialize...
     rospy.sleep(3.0)
     print("Running!")
 
-    # Vibration topic for each controller
-    def vibration_cb(data, controller_id):
-        # strength 0-3999, data contains a float expected
-        # to be in between 0.0 and 1.0
-        if data.data > 1.0:
-            strength = 3999
-        elif data.data < 0.0:
-            strength = 0
-        else:
-            strength = int(data.data * 3999)
-        vrsystem.triggerHapticPulse(controller_id, 0, strength)
+    # Get the /lighthouse_0 pose w.r.t. /hmd
+    # Both are received with respect to /world, so it takes some algebra to get
+    # T(hmd to lighthouse_0)
+    # T_hmd_lighthouse0 = T_hmd_world * T_world_lighthouse0
+    #                   = T_world_hmd^-1 * T_world_lighthouse0
+    T_hmd_lighthouse0 = TransformStamped()
 
-    vib_left = rospy.Subscriber('vive_left_vibration', Float64, vibration_cb,
-                                callback_args=left_id, queue_size=1)
-
-    vib_right = rospy.Subscriber('vive_right_vibration', Float64, vibration_cb,
-                                 callback_args=right_id, queue_size=1)
+    # A type for receiving data from the headset:
+    poses = poses_t()
 
     # Internet says the tracking can be up until 250Hz
     r = rospy.Rate(250)
     while not rospy.is_shutdown():
-        r.sleep()
-        poses = poses_t()
         vrsystem.getDeviceToAbsoluteTrackingPose(
             openvr.TrackingUniverseStanding,
             0,
             len(poses),
             poses)
-
-        now = rospy.Time.now()
-        transforms = []
+        # Get hmd transform:
         # Hmd is always 0
         matrix = poses[0].mDeviceToAbsoluteTracking
-        hmd_pose = common_vive_functions.from_matrix_to_transform(matrix, now, "world", "hmd")
-        transforms.append(hmd_pose)
+        T_world_hmd = common_vive_functions.from_matrix_to_transform(matrix, rospy.Time.now(),
+                    "world", "hmd")
 
-        # print("Hmd:")
-        # pp.pprint(hmd_pose)
-
+        # Get lighthouse_0 transform:
+        T_world_lighthouse0 = None
         for idx, _id in enumerate(lighthouse_ids):
-            matrix = poses[_id].mDeviceToAbsoluteTracking
-            lhouse_pose = common_vive_functions.from_matrix_to_transform(matrix,
-                                                   now,
-                                                   "world",
-                                                   "lighthouse_" + str(idx))
-            transforms.append(lhouse_pose)
-            # print("Lighthouse #" + str(idx) + " :")
-            # pp.pprint(lhouse_pose)
+            # Only want lighthouse_0, not lighthouse_1
+            if (idx == 0):
+                matrix = poses[_id].mDeviceToAbsoluteTracking
+                T_world_lighthouse0 = common_vive_functions.from_matrix_to_transform(matrix, rospy.Time.now(), 
+                    "world", "lighthouse_0")
 
-        if left_id:
-            matrix = poses[left_id].mDeviceToAbsoluteTracking
-            left_pose = common_vive_functions.from_matrix_to_transform(matrix,
-                                                 now,
-                                                 "world",
-                                                 "left_controller")
-            transforms.append(left_pose)
-            result, pControllerState = vrsystem.getControllerState(left_id)
-            new_msg, j = common_vive_functions.from_controller_to_joy(prev_unPacketNum_left,
-                                                pControllerState,
-                                                now,
-                                                "left_controller")
-            prev_unPacketNum_left = pControllerState.unPacketNum
-            if new_msg:
-                joy_left_pub.publish(j)
-            # print("Left controller:")
-            # # pp.pprint(d)
-            # pp.pprint(left_pose)
+        # T_hmd_lighthouse0 = T_world_hmd^-1 * T_world_lighthouse0
+        T_hmd_lighthouse0 = common_vive_functions.calculate_relative_transformation(T_world_hmd, T_world_lighthouse0)
+        T_hmd_lighthouse0.header.stamp = rospy.Time.now()
+        T_hmd_lighthouse0.header.frame_id = "hmd"
+        T_hmd_lighthouse0.child_frame_id = "lighthouse_0"
 
-        if right_id:
-            matrix = poses[right_id].mDeviceToAbsoluteTracking
-            right_pose = common_vive_functions.from_matrix_to_transform(matrix,
-                                                  now,
-                                                  "world",
-                                                  "right_controller")
-            transforms.append(right_pose)
-            result, pControllerState = vrsystem.getControllerState(right_id)
-            new_msg, j = common_vive_functions.from_controller_to_joy(prev_unPacketNum_right,
-                                                pControllerState,
-                                                now,
-                                                "right_controller")
-            prev_unPacketNum_right = pControllerState.unPacketNum
-            if new_msg:
-                joy_right_pub.publish(j)
-            # print("Right controller:")
-            # # pp.pprint(d)
-            # pp.pprint(right_pose)
-
-        for idx, _id in enumerate(generic_tracker_ids):
-            matrix = poses[_id].mDeviceToAbsoluteTracking
-            gen_track_pose = common_vive_functions.from_matrix_to_transform(matrix,
-                                                      now,
-                                                      "world",
-                                                      "generic_tracker_" + str(idx))
-            transforms.append(gen_track_pose)
-            # print("Generic tracker #" + str(idx) + " :")
-            # pp.pprint(gen_track_pose)
-
-        br.sendTransform(transforms)
+        r.sleep()
+        T_hmd_lighthouse0.header.stamp = rospy.Time.now()
+        br.sendTransform(T_hmd_lighthouse0)
 
     openvr.shutdown()

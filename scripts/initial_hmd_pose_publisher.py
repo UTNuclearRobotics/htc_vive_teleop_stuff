@@ -101,11 +101,12 @@ if __name__ == '__main__':
         T_lighthouse0_hmd.header.frame_id = "lighthouse_0"
         T_lighthouse0_hmd.child_frame_id = "hmd"
 
+    # We got the initial pose -- can release control of VR now
+    openvr.shutdown()
+
     # Republish this headset pose
     r = rospy.Rate(10)
     while not rospy.is_shutdown():
         r.sleep()
         T_lighthouse0_hmd.header.stamp = rospy.Time.now()
         br.sendTransform(T_lighthouse0_hmd)
-
-    openvr.shutdown()
