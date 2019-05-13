@@ -100,6 +100,11 @@ if __name__ == '__main__':
 
     # Preallocate
     T_world_controller = None
+    matrix = None
+    T_world_lighthouse0 = None
+    T_world_controller = None
+    T_lighthouse0_right_controller = None
+    T_lighthouse0_left_controller = None
 
     while not rospy.is_shutdown():
         vrsystem.getDeviceToAbsoluteTrackingPose(
