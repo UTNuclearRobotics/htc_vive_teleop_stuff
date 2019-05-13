@@ -161,12 +161,14 @@ def from_controller_to_joy(prev_unPacketNum,
     return new_msg, j
 
 
-def calculate_relative_transformation(T_2_1, T_2_3):
+def calculate_relative_transformation(T_2_1, T_2_3, frame_1_name, frame_3_name):
     # Args:
     # T_2_1: a transformation matrix from frame 2 to frame 1
     # T_2_3: a transformation matrix from frame 2 to frame 3
+    # frame_1_name: ROS name of frame 1 (header.frame_id)
+    # frame_3_name: ROS name of frame 3 (header.frame_id)
     # Returns:
-    # T_1_3: a transformation matrix from frame 1 to frame 3
+    # T_1_3: a TransformStamped from frame 1 to frame 3
 
     # Requires conversion from TransformStamped to lists
     trans = [T_2_1.transform.translation.x, \
@@ -205,5 +207,8 @@ def calculate_relative_transformation(T_2_1, T_2_3):
     T_1_3 = TransformStamped()
     T_1_3.transform.translation = P_1_3.pose.position
     T_1_3.transform.rotation = P_1_3.pose.orientation
+    T_1_3.header.frame_id = frame_1_name
+    T_1_3.child_frame_id = frame_3_name
+    T_1_3.header.stamp = rospy.Time.now()
 
     return T_1_3

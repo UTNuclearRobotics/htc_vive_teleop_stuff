@@ -85,8 +85,8 @@ if __name__ == '__main__':
     # Get the /left_controller pose w.r.t. /hmd
     # Both are received with respect to /world, so it takes some algebra to get
     # T(hmd to left_controller)
-    # T_hmd_left_controller = T_hmd_world * T_world_left_controller
-    #                   = T_world_hmd^-1 * T_world_left_controller
+    # T_hmd_left_controller = T_hmd_world * T_world_controller
+    #                   = T_world_hmd^-1 * T_world_controller
     T_hmd_left_controller = TransformStamped()
 
     # A type for receiving data from the headset:
@@ -107,21 +107,30 @@ if __name__ == '__main__':
                     "world", "hmd")
 
         # Get left_controller transform:
-        T_world_left_controller = None
+        T_world_controller = None
         if left_id:
             matrix = poses[left_id].mDeviceToAbsoluteTracking
-            T_world_left_controller = common_vive_functions.from_matrix_to_transform(matrix,
+            T_world_controller = common_vive_functions.from_matrix_to_transform(matrix,
                                                  rospy.Time.now(),
                                                  "world",
                                                  "left_controller")
-        # T_hmd_left_controller = T_world_hmd^-1 * T_world_left_controller
-        T_hmd_left_controller = common_vive_functions.calculate_relative_transformation(T_world_hmd, T_world_left_controller)
-        T_hmd_left_controller.header.stamp = rospy.Time.now()
-        T_hmd_left_controller.header.frame_id = "hmd"
-        T_hmd_left_controller.child_frame_id = "left_controller"
+        # T_hmd_left_controller = T_world_hmd^-1 * T_world_controller
+        T_hmd_left_controller = common_vive_functions.calculate_relative_transformation(T_world_hmd, T_world_controller, \
+            "hmd", "left_controller")
+
+        # Get right_controller transform:
+        if right_id:
+            matrix = poses[right_id].mDeviceToAbsoluteTracking
+            T_world_controller = common_vive_functions.from_matrix_to_transform(matrix,
+                                                 rospy.Time.now(),
+                                                 "world",
+                                                 "right_controller")
+        # T_hmd_left_controller = T_world_hmd^-1 * T_world_controller
+        T_hmd_right_controller = common_vive_functions.calculate_relative_transformation(T_world_hmd, T_world_controller, \
+            "hmd", "right_controller")
 
         r.sleep()
-        T_hmd_left_controller.header.stamp = rospy.Time.now()
         br.sendTransform(T_hmd_left_controller)
+        br.sendTransform(T_hmd_right_controller)
 
     openvr.shutdown()
