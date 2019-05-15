@@ -114,17 +114,19 @@ if __name__ == '__main__':
             poses)
 
         # Get lighthouse0 transform
-        matrix = poses[lighthouse_ids[0]].mDeviceToAbsoluteTracking
-        T_world_lighthouse0 = common_vive_functions.from_matrix_to_transform(matrix, rospy.Time.now(),
-            "world", "lighthouse0")
+        #matrix = poses[lighthouse_ids[0]].mDeviceToAbsoluteTracking
+        #T_world_lighthouse0 = common_vive_functions.from_matrix_to_transform(matrix, rospy.Time.now(),
+        #    "world", "lighthouse0")
+        T_world_lighthouse0 = poses[lighthouse_ids[0]].mDeviceToAbsoluteTracking
 
         # Get left_controller transform:
         if left_id:
-            matrix = poses[left_id].mDeviceToAbsoluteTracking
-            T_world_controller = common_vive_functions.from_matrix_to_transform(matrix,
-                                                 rospy.Time.now(),
-                                                 "world",
-                                                 "left_controller")
+            #matrix = poses[left_id].mDeviceToAbsoluteTracking
+            #T_world_controller = common_vive_functions.from_matrix_to_transform(matrix,
+            #                                     rospy.Time.now(),
+            #                                     "world",
+            #                                     "left_controller")
+            T_world_controller = poses[left_id].mDeviceToAbsoluteTracking
         # T_lighthouse0_left_controller = T_world_lighthouse0^-1 * T_world_controller
         T_lighthouse0_left_controller = common_vive_functions.calculate_relative_transformation(T_world_lighthouse0, \
             T_world_controller, "lighthouse0", "left_controller")
@@ -132,11 +134,12 @@ if __name__ == '__main__':
 
         # Get right_controller transform:
         if right_id:
-            matrix = poses[right_id].mDeviceToAbsoluteTracking
-            T_world_controller = common_vive_functions.from_matrix_to_transform(matrix,
-                                                 rospy.Time.now(),
-                                                 "world",
-                                                 "right_controller")
+            #matrix = poses[right_id].mDeviceToAbsoluteTracking
+            #T_world_controller = common_vive_functions.from_matrix_to_transform(matrix,
+            #                                     rospy.Time.now(),
+            #                                     "world",
+            #                                     "right_controller")
+            T_world_controller = poses[right_id].mDeviceToAbsoluteTracking
         # T_lighthouse0_right_controller = T_world_lighthouse0^-1 * T_world_controller
         T_lighthouse0_right_controller = common_vive_functions.calculate_relative_transformation(T_world_lighthouse0, \
             T_world_controller, "lighthouse0", "right_controller")

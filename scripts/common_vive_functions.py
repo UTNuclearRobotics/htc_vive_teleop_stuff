@@ -4,6 +4,7 @@ from geometry_msgs.msg import TransformStamped, PoseStamped
 from math import sqrt, copysign
 from sensor_msgs.msg import Joy
 
+import numpy as np
 import openvr
 import rospy
 import tf.transformations
@@ -163,52 +164,37 @@ def from_controller_to_joy(prev_unPacketNum,
 
 def calculate_relative_transformation(T_2_1, T_2_3, frame_1_name, frame_3_name):
     # Args:
-    # T_2_1: a transformation matrix from frame 2 to frame 1
-    # T_2_3: a transformation matrix from frame 2 to frame 3
+    # T_2_1: a transformation matrix from frame 2 to frame 1. Only stores the first three rows
+    # T_2_3: a transformation matrix from frame 2 to frame 3. Only stores the first three rows
     # frame_1_name: ROS name of frame 1 (header.frame_id)
     # frame_3_name: ROS name of frame 3 (header.frame_id)
     # Returns:
     # T_1_3: a TransformStamped from frame 1 to frame 3
 
-    # Requires conversion from TransformStamped to lists
-    trans = [T_2_1.transform.translation.x, \
-            T_2_1.transform.translation.y, \
-            T_2_1.transform.translation.z]
-    rot = [T_2_1.transform.rotation.x, \
-            T_2_1.transform.rotation.y, \
-            T_2_1.transform.rotation.z, \
-            T_2_1.transform.rotation.w]
-    transform = tf.transformations.concatenate_matrices( \
-        tf.transformations.translation_matrix(trans), \
-        tf.transformations.quaternion_matrix(rot))
-    T_1_2 = TransformStamped()
-    T_1_2.header.stamp = rospy.Time.now()
-    inverse = tf.transformations.inverse_matrix(transform)
-    T_1_2.transform.translation.x = inverse[0][3]
-    T_1_2.transform.translation.y = inverse[1][3]
-    T_1_2.transform.translation.z = inverse[2][3]
-    q = tf.transformations.quaternion_from_matrix(inverse)
-    T_1_2.transform.rotation.x = q[0]
-    T_1_2.transform.rotation.y = q[1]
-    T_1_2.transform.rotation.z = q[2]
-    T_1_2.transform.rotation.w = q[3]
+    # Input transformation matrices only include the first 3 rows, to save memory.
+    # Add the fourth row and convert to numpy array.
+    T_2_1_numpy = convert_HmdMatrix34_t_to_numpy(T_2_1)
 
-    # T_2_3 needs to be a PoseStamped type, for convenient transformation.
-    # It still holds the same data.
-    P_2_3 = PoseStamped()
-    P_2_3.header = T_2_3.header
-    P_2_3.pose.position = T_2_3.transform.translation
-    P_2_3.pose.orientation = T_2_3.transform.rotation
+    T_2_3_numpy = convert_HmdMatrix34_t_to_numpy(T_2_3)
+    # T_1_3 = T_2_1^-1 * T_2_3
+    T_1_3_numpy = np.dot(np.linalg.inv(T_2_1_numpy), T_2_3_numpy)
 
-    # T_1_3 = T_2_1^-1 * T_1_3
-    P_1_3 = tf2_geometry_msgs.do_transform_pose(P_2_3, \
-        T_1_2)
-    # Back to a tf data type
-    T_1_3 = TransformStamped()
-    T_1_3.transform.translation = P_1_3.pose.position
-    T_1_3.transform.rotation = P_1_3.pose.orientation
-    T_1_3.header.frame_id = frame_1_name
-    T_1_3.child_frame_id = frame_3_name
-    T_1_3.header.stamp = rospy.Time.now()
+    # To a tf data type
+    T_1_3 = from_matrix_to_transform(T_1_3_numpy, rospy.Time.now(), frame_1_name, frame_3_name)
 
     return T_1_3
+
+
+def convert_HmdMatrix34_t_to_numpy(hmd_matrix):
+    # Convert this HMD transformation matrix to numpy.
+    # The transformation matrix only stores the first 3 rows to save memory.
+    # Returns a 4x4 transformation matrix.
+
+    T = np.array([ \
+        [hmd_matrix[0][0], hmd_matrix[0][1], hmd_matrix[0][2], hmd_matrix[0][3]], \
+        [hmd_matrix[1][0], hmd_matrix[1][1], hmd_matrix[1][2], hmd_matrix[1][3]], \
+        [hmd_matrix[2][0], hmd_matrix[2][1], hmd_matrix[2][2], hmd_matrix[2][3]], \
+        [0, 0, 0, 1] \
+        ])
+
+    return T
