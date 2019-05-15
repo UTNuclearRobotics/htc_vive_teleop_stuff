@@ -93,7 +93,7 @@ if __name__ == '__main__':
     openvr.shutdown()
 
     # Republish this headset pose
-    r = rospy.Rate(10)
+    r = rospy.Rate(100)
     while not rospy.is_shutdown():
         r.sleep()
         T_hmd_lighthouse0.header.stamp = rospy.Time.now()

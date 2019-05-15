@@ -68,7 +68,7 @@ if __name__ == '__main__':
     print("===========================")
     print("Waiting for controllers...")
     try:
-        while left_id is None or right_id is None:
+        while (left_id is None or right_id is None) and (not rospy.is_shutdown()):
             left_id, right_id = common_vive_functions.get_controller_ids(vrsystem)
             if left_id and right_id:
                 break
@@ -96,7 +96,7 @@ if __name__ == '__main__':
     poses = poses_t()
 
     # Internet says the tracking can be up until 250Hz
-    r = rospy.Rate(10)
+    r = rospy.Rate(100)
 
     # Preallocate
     T_world_controller = None
@@ -107,6 +107,7 @@ if __name__ == '__main__':
     T_lighthouse0_left_controller = None
 
     while not rospy.is_shutdown():
+        r.sleep()
         vrsystem.getDeviceToAbsoluteTrackingPose(
             openvr.TrackingUniverseStanding,
             0,
@@ -131,7 +132,5 @@ if __name__ == '__main__':
         T_lighthouse0_right_controller = common_vive_functions.calculate_relative_transformation(T_world_lighthouse0, \
             T_world_controller, "lighthouse0", "right_controller")
         br.sendTransform(T_lighthouse0_right_controller)
-
-        r.sleep()
 
     openvr.shutdown()
