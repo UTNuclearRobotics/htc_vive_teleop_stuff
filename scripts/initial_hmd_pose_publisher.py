@@ -46,7 +46,10 @@ if __name__ == '__main__':
     print("VRSystem...")
     vrsystem = openvr.VRSystem()
 
-    lighthouse_ids = common_vive_functions.get_lighthouse_ids(vrsystem)
+    # Object for common calculations
+    common_vive_calcs = common_vive_functions.CommonViveFunctions()
+
+    lighthouse_ids = common_vive_calcs.get_lighthouse_ids(vrsystem)
     print("Lighthouse IDs: " + str(lighthouse_ids))
 
     poses_t = openvr.TrackedDevicePose_t * openvr.k_unMaxTrackedDeviceCount
@@ -86,7 +89,7 @@ if __name__ == '__main__':
         T_world_lighthouse = poses[lighthouse_ids[0]].mDeviceToAbsoluteTracking
 
         # T_hmd_lighthouse0 = T_world_hmd^-1 * T_world_lighthouse0
-        T_hmd_lighthouse0 = common_vive_functions.calculate_relative_transformation(T_world_hmd, \
+        T_hmd_lighthouse0 = common_vive_calcs.calculate_relative_transformation(T_world_hmd, \
             T_world_lighthouse, "hmd", "lighthouse0")
 
     # We got the initial pose -- can release control of VR now

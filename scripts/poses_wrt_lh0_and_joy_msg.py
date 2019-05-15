@@ -49,6 +49,9 @@ if __name__ == '__main__':
     print("VRSystem...")
     vrsystem = openvr.VRSystem()
 
+    # Object for common calculations
+    common_vive_calcs = common_vive_functions.CommonViveFunctions()
+
     poses_t = openvr.TrackedDevicePose_t * openvr.k_unMaxTrackedDeviceCount
     poses = poses_t()
 
@@ -69,7 +72,7 @@ if __name__ == '__main__':
     print("Waiting for controllers...")
     try:
         while (left_id is None or right_id is None) and (not rospy.is_shutdown()):
-            left_id, right_id = common_vive_functions.get_controller_ids(vrsystem)
+            left_id, right_id = common_vive_calcs.get_controller_ids(vrsystem)
             if left_id and right_id:
                 break
             print("Waiting for controllers...")
@@ -82,7 +85,7 @@ if __name__ == '__main__':
     print("Right controller ID: " + str(right_id))
     print("===========================")
 
-    lighthouse_ids = common_vive_functions.get_lighthouse_ids(vrsystem)
+    lighthouse_ids = common_vive_calcs.get_lighthouse_ids(vrsystem)
     print("Lighthouse IDs: " + str(lighthouse_ids))
 
     # Get the /left_controller pose w.r.t. /lighthouse0
@@ -121,7 +124,7 @@ if __name__ == '__main__':
         if left_id:
             T_world_controller = poses[left_id].mDeviceToAbsoluteTracking
         # T_lighthouse0_left_controller = T_world_lighthouse0^-1 * T_world_controller
-        T_lighthouse0_left_controller = common_vive_functions.calculate_relative_transformation(T_world_lighthouse0, \
+        T_lighthouse0_left_controller = common_vive_calcs.calculate_relative_transformation(T_world_lighthouse0, \
             T_world_controller, "lighthouse0", "left_controller")
         br.sendTransform(T_lighthouse0_left_controller)
 
@@ -129,7 +132,7 @@ if __name__ == '__main__':
         if right_id:
             T_world_controller = poses[right_id].mDeviceToAbsoluteTracking
         # T_lighthouse0_right_controller = T_world_lighthouse0^-1 * T_world_controller
-        T_lighthouse0_right_controller = common_vive_functions.calculate_relative_transformation(T_world_lighthouse0, \
+        T_lighthouse0_right_controller = common_vive_calcs.calculate_relative_transformation(T_world_lighthouse0, \
             T_world_controller, "lighthouse0", "right_controller")
         br.sendTransform(T_lighthouse0_right_controller)
 
