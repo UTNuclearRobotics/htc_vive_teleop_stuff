@@ -64,11 +64,9 @@ if __name__ == '__main__':
     rospy.sleep(3.0)
     print("Running!")
 
-    # Get the initial headset pose /hmd w.r.t. /lighthouse_0.
+    # Get the initial headset pose /lighthouse_0 w.r.t. /hmd.
     # Both are received with respect to /world, so it takes some algebra to get
-    # T(lighthouse_0 to hmd)
-    # T_lighthouse0_hmd = T_lighthouse0_world * T_world_hmd
-    #                   = T_world_lighthouse_0 ^ -1 * T_world_hmd
+
     T_hmd_lighthouse0 = TransformStamped()
 
     # A type for receiving data from the headset:
@@ -82,22 +80,14 @@ if __name__ == '__main__':
             poses)
         # Get hmd transform:
         # Hmd is always 0
-        matrix = poses[0].mDeviceToAbsoluteTracking
-        T_world_hmd = common_vive_functions.from_matrix_to_transform(matrix, rospy.Time.now(),
-                    "world", "hmd")
+        T_world_hmd = poses[0].mDeviceToAbsoluteTracking
 
-        # Get lighthouse_0 transform:
-        T_world_lighthouse0 = None
-        for idx, _id in enumerate(lighthouse_ids):
-            # Only want lighthouse_0, not lighthouse_1
-            if (idx == 0):
-                matrix = poses[_id].mDeviceToAbsoluteTracking
-                T_world_lighthouse0 = common_vive_functions.from_matrix_to_transform(matrix, rospy.Time.now(), 
-                    "world", "lighthouse0")
+        # Get lighthouse_0 transform:s
+        T_world_lighthouse = poses[lighthouse_ids[0]].mDeviceToAbsoluteTracking
 
         # T_hmd_lighthouse0 = T_world_hmd^-1 * T_world_lighthouse0
-        T_hmd_lighthouse0 = common_vive_functions.calculate_relative_transformation(T_world_hmd, T_world_lighthouse0, \
-            "hmd", "lighthouse0")
+        T_hmd_lighthouse0 = common_vive_functions.calculate_relative_transformation(T_world_hmd, \
+            T_world_lighthouse, "hmd", "lighthouse0")
 
     # We got the initial pose -- can release control of VR now
     openvr.shutdown()
