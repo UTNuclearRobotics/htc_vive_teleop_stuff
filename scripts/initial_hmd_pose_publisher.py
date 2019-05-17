@@ -47,15 +47,15 @@ def calculate_average_transformation_elements(T_list):
     avg_transform = TransformStamped()
 
     # Sum
-    for t in T_list:
-        avg_transform.transform.translation.x = avg_transform.transform.translation.x + t.transform.translation.x
-        avg_transform.transform.translation.y = avg_transform.transform.translation.y + t.transform.translation.y
-        avg_transform.transform.translation.z = avg_transform.transform.translation.z + t.transform.translation.z
+    for T in T_list:
+        avg_transform.transform.translation.x = avg_transform.transform.translation.x + T.transform.translation.x
+        avg_transform.transform.translation.y = avg_transform.transform.translation.y + T.transform.translation.y
+        avg_transform.transform.translation.z = avg_transform.transform.translation.z + T.transform.translation.z
 
-        avg_transform.transform.rotation.x = avg_transform.transform.rotation.x + t.transform.rotation.x
-        avg_transform.transform.rotation.y = avg_transform.transform.rotation.y + t.transform.rotation.y
-        avg_transform.transform.rotation.z = avg_transform.transform.rotation.z + t.transform.rotation.z
-        avg_transform.transform.rotation.w = avg_transform.transform.rotation.w + t.transform.rotation.w
+        avg_transform.transform.rotation.x = avg_transform.transform.rotation.x + T.transform.rotation.x
+        avg_transform.transform.rotation.y = avg_transform.transform.rotation.y + T.transform.rotation.y
+        avg_transform.transform.rotation.z = avg_transform.transform.rotation.z + T.transform.rotation.z
+        avg_transform.transform.rotation.w = avg_transform.transform.rotation.w + T.transform.rotation.w
 
     # Divide by number of datapoints
     avg_transform.transform.translation.x = avg_transform.transform.translation.x / len(T_list)
@@ -67,7 +67,27 @@ def calculate_average_transformation_elements(T_list):
     avg_transform.transform.rotation.z = avg_transform.transform.rotation.z / len(T_list)
     avg_transform.transform.rotation.w = avg_transform.transform.rotation.w / len(T_list)
 
+    avg_transform.header = T_list[0].header
+    avg_transform.child_frame_id = T_list[0].child_frame_id
+
     return avg_transform
+
+
+# Check if all transformation matrices in a list match the reference
+# Returns false if they do not match within the tolerance
+def check_transforms_match(T_reference, T_list, tolerance):
+    for T in T_list:
+        if abs(T_reference.transform.translation.x - T.transform.translation.x) > tolerance \
+            or abs(T_reference.transform.translation.y - T.transform.translation.y) > tolerance \
+            or abs(T_reference.transform.translation.z - T.transform.translation.z) > tolerance \
+            or abs(T_reference.transform.rotation.x - T.transform.rotation.x) > tolerance \
+            or abs(T_reference.transform.rotation.y - T.transform.rotation.y) > tolerance \
+            or abs(T_reference.transform.rotation.z - T.transform.rotation.z) > tolerance \
+            or abs(T_reference.transform.rotation.w - T.transform.rotation.w) > tolerance:
+
+            rospy.loginfo('Do not match')
+            return False
+    return True
 
 
 if __name__ == '__main__':
@@ -123,14 +143,13 @@ if __name__ == '__main__':
     # Get the initial headset pose /lighthouse_0 w.r.t. /hmd.
     # Both are received with respect to /world, so it takes some algebra to get
 
-    # Threshold for comparison of transformation matrix elements
-    MATRIX_ELEMENT_EPSILON = 0.001
-
     transform_datapoints_match = False
+    transform_datapoints = []
+    # Threshold for comparison of TransformStamped elements
+    MATRIX_ELEMENT_EPSILON = 0.001
     while (not transform_datapoints_match) and (not rospy.is_shutdown()):
         # Collect several transform datapoints
-        num_datapoints = 250
-        transform_datapoints = []
+        num_datapoints = 10
         for i in range(num_datapoints):
             t = get_hmd_to_lighthouse0_transform()
             # Care with Python and appending references rather than copies!
@@ -141,10 +160,13 @@ if __name__ == '__main__':
         T_avg = calculate_average_transformation_elements(transform_datapoints)
 
         # Compare each of the transform datapoints to the average. If all match, the initial transform is stable
-        transform_datapoints_match = True
+        transform_datapoints_match = check_transforms_match(T_avg, transform_datapoints, MATRIX_ELEMENT_EPSILON)
 
     # We got the initial pose -- can release control of VR now
     openvr.shutdown()
+
+    rospy.loginfo('HMD to lighthouse0 transform:')
+    rospy.loginfo(T_avg)
 
     # Republish this headset pose
     r = rospy.Rate(100)
