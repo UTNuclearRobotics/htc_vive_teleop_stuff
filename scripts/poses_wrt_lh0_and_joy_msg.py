@@ -126,6 +126,7 @@ if __name__ == '__main__':
         # T_lighthouse0_left_controller = T_world_lighthouse0^-1 * T_world_controller
         T_lighthouse0_left_controller = common_vive_calcs.calculate_relative_transformation(T_world_lighthouse0, \
             T_world_controller, "lighthouse0", "left_controller")
+        T_lighthouse0_left_controller.header.stamp = rospy.Time.now()
         br.sendTransform(T_lighthouse0_left_controller)
 
         # Get right_controller transform:
@@ -134,6 +135,7 @@ if __name__ == '__main__':
         # T_lighthouse0_right_controller = T_world_lighthouse0^-1 * T_world_controller
         T_lighthouse0_right_controller = common_vive_calcs.calculate_relative_transformation(T_world_lighthouse0, \
             T_world_controller, "lighthouse0", "right_controller")
+        T_lighthouse0_right_controller.header.stamp = rospy.Time.now()
         br.sendTransform(T_lighthouse0_right_controller)
 
     openvr.shutdown()

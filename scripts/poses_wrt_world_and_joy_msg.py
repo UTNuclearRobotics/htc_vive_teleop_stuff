@@ -52,12 +52,15 @@ if __name__ == '__main__':
     print("VRSystem...")
     vrsystem = openvr.VRSystem()
 
+    # Object for common calculations
+    common_vive_calcs = common_vive_functions.CommonViveFunctions()
+
     left_id, right_id = None, None
     print("===========================")
     print("Waiting for controllers...")
     try:
         while left_id is None or right_id is None:
-            left_id, right_id = common_vive_functions.get_controller_ids(vrsystem)
+            left_id, right_id = common_vive_calcs.get_controller_ids(vrsystem)
             if left_id and right_id:
                 break
             print("Waiting for controllers...")
@@ -70,10 +73,10 @@ if __name__ == '__main__':
     print("Right controller ID: " + str(right_id))
     print("===========================")
 
-    lighthouse_ids = common_vive_functions.get_lighthouse_ids(vrsystem)
+    lighthouse_ids = common_vive_calcs.get_lighthouse_ids(vrsystem)
     print("Lighthouse IDs: " + str(lighthouse_ids))
 
-    generic_tracker_ids = common_vive_functions.get_generic_tracker_ids(vrsystem)
+    generic_tracker_ids = common_vive_calcs.get_generic_tracker_ids(vrsystem)
     print("Generic tracker IDs:" + str(generic_tracker_ids))
 
     poses_t = openvr.TrackedDevicePose_t * openvr.k_unMaxTrackedDeviceCount
@@ -127,7 +130,7 @@ if __name__ == '__main__':
         transforms = []
         # Hmd is always 0
         matrix = poses[0].mDeviceToAbsoluteTracking
-        hmd_pose = common_vive_functions.from_matrix_to_transform(matrix, now, "world", "hmd")
+        hmd_pose = common_vive_calcs.from_matrix_to_transform(matrix, now, "world", "hmd")
         transforms.append(hmd_pose)
 
         # print("Hmd:")
@@ -135,7 +138,7 @@ if __name__ == '__main__':
 
         for idx, _id in enumerate(lighthouse_ids):
             matrix = poses[_id].mDeviceToAbsoluteTracking
-            lhouse_pose = common_vive_functions.from_matrix_to_transform(matrix,
+            lhouse_pose = common_vive_calcs.from_matrix_to_transform(matrix,
                                                    now,
                                                    "world",
                                                    "lighthouse_" + str(idx))
@@ -145,13 +148,13 @@ if __name__ == '__main__':
 
         if left_id:
             matrix = poses[left_id].mDeviceToAbsoluteTracking
-            left_pose = common_vive_functions.from_matrix_to_transform(matrix,
+            left_pose = common_vive_calcs.from_matrix_to_transform(matrix,
                                                  now,
                                                  "world",
                                                  "left_controller")
             transforms.append(left_pose)
             result, pControllerState = vrsystem.getControllerState(left_id)
-            new_msg, j = common_vive_functions.from_controller_to_joy(prev_unPacketNum_left,
+            new_msg, j = common_vive_calcs.from_controller_to_joy(prev_unPacketNum_left,
                                                 pControllerState,
                                                 now,
                                                 "left_controller")
@@ -164,13 +167,13 @@ if __name__ == '__main__':
 
         if right_id:
             matrix = poses[right_id].mDeviceToAbsoluteTracking
-            right_pose = common_vive_functions.from_matrix_to_transform(matrix,
+            right_pose = common_vive_calcs.from_matrix_to_transform(matrix,
                                                   now,
                                                   "world",
                                                   "right_controller")
             transforms.append(right_pose)
             result, pControllerState = vrsystem.getControllerState(right_id)
-            new_msg, j = common_vive_functions.from_controller_to_joy(prev_unPacketNum_right,
+            new_msg, j = common_vive_calcs.from_controller_to_joy(prev_unPacketNum_right,
                                                 pControllerState,
                                                 now,
                                                 "right_controller")
@@ -183,7 +186,7 @@ if __name__ == '__main__':
 
         for idx, _id in enumerate(generic_tracker_ids):
             matrix = poses[_id].mDeviceToAbsoluteTracking
-            gen_track_pose = common_vive_functions.from_matrix_to_transform(matrix,
+            gen_track_pose = common_vive_calcs.from_matrix_to_transform(matrix,
                                                       now,
                                                       "world",
                                                       "generic_tracker_" + str(idx))
