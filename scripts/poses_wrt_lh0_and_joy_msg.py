@@ -99,7 +99,7 @@ if __name__ == '__main__':
     poses = poses_t()
 
     # Internet says the tracking can be up until 250Hz
-    r = rospy.Rate(100)
+    r = rospy.Rate(30)
 
     # Preallocate
     T_world_controller = None
