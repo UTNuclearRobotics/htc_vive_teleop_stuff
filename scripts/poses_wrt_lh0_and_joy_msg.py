@@ -62,6 +62,10 @@ if __name__ == '__main__':
     print("Creating TransformBroadcaster...")
 
     br = tf2_ros.TransformBroadcaster()
+    joy_left_pub = rospy.Publisher('vive_left', Joy, queue_size=1)
+    prev_unPacketNum_left = 0
+    joy_right_pub = rospy.Publisher('vive_right', Joy, queue_size=1)
+    prev_unPacketNum_right = 0
 
     # Give a bit of time to initialize...
     rospy.sleep(3.0)
@@ -120,22 +124,42 @@ if __name__ == '__main__':
         # Get lighthouse0 transform
         T_world_lighthouse0 = poses[lighthouse_ids[0]].mDeviceToAbsoluteTracking
 
-        # Get left_controller transform:
         if left_id:
+            # Left controller transform:
             T_world_controller = poses[left_id].mDeviceToAbsoluteTracking
-        # T_lighthouse0_left_controller = T_world_lighthouse0^-1 * T_world_controller
-        T_lighthouse0_left_controller = common_vive_calcs.calculate_relative_transformation(T_world_lighthouse0, \
-            T_world_controller, "lighthouse0", "left_controller")
-        T_lighthouse0_left_controller.header.stamp = rospy.Time.now()
-        br.sendTransform(T_lighthouse0_left_controller)
+            # T_lighthouse0_left_controller = T_world_lighthouse0^-1 * T_world_controller
+            T_lighthouse0_left_controller = common_vive_calcs.calculate_relative_transformation(T_world_lighthouse0, \
+                T_world_controller, "lighthouse0", "left_controller")
+            T_lighthouse0_left_controller.header.stamp = rospy.Time.now()
+            br.sendTransform(T_lighthouse0_left_controller)
+
+            # Left joy msg
+            result, pControllerState = vrsystem.getControllerState(left_id)
+            new_msg, j = common_vive_calcs.from_controller_to_joy(prev_unPacketNum_left,
+                                                pControllerState,
+                                                rospy.Time.now(),
+                                                "left_controller")
+            prev_unPacketNum_left = pControllerState.unPacketNum
+            if new_msg:
+                joy_left_pub.publish(j)
 
         # Get right_controller transform:
         if right_id:
             T_world_controller = poses[right_id].mDeviceToAbsoluteTracking
-        # T_lighthouse0_right_controller = T_world_lighthouse0^-1 * T_world_controller
-        T_lighthouse0_right_controller = common_vive_calcs.calculate_relative_transformation(T_world_lighthouse0, \
-            T_world_controller, "lighthouse0", "right_controller")
-        T_lighthouse0_right_controller.header.stamp = rospy.Time.now()
-        br.sendTransform(T_lighthouse0_right_controller)
+            # T_lighthouse0_right_controller = T_world_lighthouse0^-1 * T_world_controller
+            T_lighthouse0_right_controller = common_vive_calcs.calculate_relative_transformation(T_world_lighthouse0, \
+                T_world_controller, "lighthouse0", "right_controller")
+            T_lighthouse0_right_controller.header.stamp = rospy.Time.now()
+            br.sendTransform(T_lighthouse0_right_controller)
+
+            # Right joy msg
+            result, pControllerState = vrsystem.getControllerState(right_id)
+            new_msg, j = common_vive_calcs.from_controller_to_joy(prev_unPacketNum_right,
+                                                pControllerState,
+                                                rospy.Time.now(),
+                                                "right_controller")
+            prev_unPacketNum_right = pControllerState.unPacketNum
+            if new_msg:
+                joy_right_pub.publish(j)
 
     openvr.shutdown()

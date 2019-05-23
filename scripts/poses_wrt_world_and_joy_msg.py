@@ -161,9 +161,6 @@ if __name__ == '__main__':
             prev_unPacketNum_left = pControllerState.unPacketNum
             if new_msg:
                 joy_left_pub.publish(j)
-            # print("Left controller:")
-            # # pp.pprint(d)
-            # pp.pprint(left_pose)
 
         if right_id:
             matrix = poses[right_id].mDeviceToAbsoluteTracking
@@ -180,9 +177,6 @@ if __name__ == '__main__':
             prev_unPacketNum_right = pControllerState.unPacketNum
             if new_msg:
                 joy_right_pub.publish(j)
-            # print("Right controller:")
-            # # pp.pprint(d)
-            # pp.pprint(right_pose)
 
         for idx, _id in enumerate(generic_tracker_ids):
             matrix = poses[_id].mDeviceToAbsoluteTracking
